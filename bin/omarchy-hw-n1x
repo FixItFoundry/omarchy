@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# omarchy:summary=Detect the NVIDIA N1x laptop platform (GB10-class SoC with MediaTek peripherals, GPU 10de:2e06).
+#
+# Detect the NVIDIA N1x laptop platform (GB10-class SoC with MediaTek-designed
+# CPU-side peripherals; first seen as the Dell XPS 16 DX16263).
+#
+# Reads sysfs only: no lspci, so it is safe from Hyprland's config reload path.
+# Two independent signatures are accepted so a firmware revision that renames
+# one of them does not silently disable the platform fixes:
+#   - the CPU-side I2C controllers are ACPI NVDA0200 (MediaTek MT8901 IP)
+#   - the on-package GPU is PCI 10de:2e06 (GB20B "RTX Spark N1X")
+
+[[ $(uname -m) == aarch64 ]] || exit 1
+
+acpi_devices_path="${OMARCHY_ACPI_DEVICES_PATH:-/sys/bus/acpi/devices}"
+pci_devices_path="${OMARCHY_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+
+shopt -s nullglob
+for device in "$acpi_devices_path"/NVDA0200:*; do
+  [[ -d $device ]] && exit 0
+done
+
+for device in "$pci_devices_path"/*; do
+  [[ -r $device/vendor && -r $device/device ]] || continue
+  [[ $(< "$device/vendor") == "0x10de" ]] || continue
+  [[ $(< "$device/device") == "0x2e06" ]] && exit 0
+done
+
+exit 1

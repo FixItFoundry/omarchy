@@ -1,4 +1,9 @@
-if lspci | grep -qi 'nvidia'; then
+# The NVIDIA N1x laptop's on-package GPU (10de:2e06) is handled by
+# install/hardware/n1x.sh: the current open driver cannot boot its GSP, so early
+# KMS and initramfs injection here would only produce a black screen.
+if omarchy-hw-n1x; then
+  echo "NVIDIA N1x platform detected; GPU driver policy is owned by hardware/n1x.sh"
+elif lspci | grep -qi 'nvidia'; then
   if omarchy-hw-nvidia-gsp; then
     PACKAGES=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver)
   elif omarchy-hw-nvidia-without-gsp; then
