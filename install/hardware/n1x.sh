@@ -76,26 +76,56 @@ if ! limine-entry-tool --add-uki linux-n1x-rescue "$n1x_rescue_uki" \
 fi
 rm -f "$n1x_rescue_cmdline_file" "$n1x_rescue_uki"
 
-# GPU policy. The pinned open driver (610.57.04) binds 10de:2e06 but cannot
-# boot its GSP (FWSEC chain-of-trust timeout), and a dead NVIDIA render node
-# makes Hyprland abort. Keep the whole stack unloaded so Hyprland renders in
+# GPU policy, decided by the system firmware version.
+#
+# Pre-release firmware (0.x, e.g. 0.60.1) leaves the GPU's secure boot
+# unanswered: the 610.57.04 open driver binds 10de:2e06 but cannot boot the
+# GSP (FWSEC chain-of-trust timeout), and its dead render node aborts
+# Hyprland. Keep the whole stack unloaded there so Hyprland renders in
 # software on the firmware framebuffer. install lines also stop explicit
 # modprobe calls (nvidia-smi, session start) that a blacklist alone allows.
-# Drop this file once a driver boots the GPU.
-rm -f /etc/modprobe.d/nvidia.conf /etc/mkinitcpio.conf.d/nvidia.conf
-cat > /etc/modprobe.d/omarchy-n1x-nvidia-disable.conf <<'CONF'
-# N1x bring-up: 610.57.04 cannot boot this GPU's GSP; see install/hardware/n1x.sh.
+#
+# Firmware 1.0.4 and later boots the GSP. There the GPU drives the panel:
+# early KMS so the console and LUKS prompt land on nvidia-drm's fbdev, and
+# the firmware framebuffer driver is blacklisted (as NVIDIA ships on the
+# Spark) so Hyprland sees exactly one DRM device. Verified 2026-09-11:
+# eDP-1 at 1920x1200@120 with nothing else configured.
+bios_version=$(cat /sys/class/dmi/id/bios_version 2>/dev/null || echo 0)
+rm -f /etc/modprobe.d/nvidia.conf /etc/mkinitcpio.conf.d/nvidia.conf /etc/modprobe.d/omarchy-n1x-nvidia-disable.conf
+cat > /etc/modprobe.d/omarchy-n1x-nvidiafb.conf <<'CONF'
+# The legacy nvidiafb driver also claims this GPU and must never load.
+blacklist nvidiafb
+install nvidiafb /bin/false
+CONF
+if [[ $(printf '%s\n' 1.0.0 "$bios_version" | sort -V | head -1) == 1.0.0 ]]; then
+  echo "N1x firmware $bios_version: GPU drives the panel"
+  omarchy-pkg-add nvidia-open-dkms nvidia-utils libva-nvidia-driver
+  cat > /etc/modprobe.d/nvidia.conf <<'CONF'
+options nvidia_drm modeset=1 fbdev=1
+CONF
+  cat > /etc/mkinitcpio.conf.d/nvidia.conf <<'CONF'
+MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
+CONF
+  printf '%s\n' \
+    '# N1x on firmware >= 1.0: the GPU owns the panel; drop the firmware' \
+    '# framebuffer so Hyprland sees one DRM device.' \
+    'KERNEL_CMDLINE[default]+=" initcall_blacklist=simpledrm_platform_driver_init"' \
+    > /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
+else
+  echo "N1x firmware $bios_version: GPU firmware cannot boot on this BIOS; keeping the NVIDIA stack unloaded"
+  rm -f /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
+  cat > /etc/modprobe.d/omarchy-n1x-nvidia-disable.conf <<'CONF'
+# N1x bring-up: pre-release firmware cannot boot this GPU's GSP; see install/hardware/n1x.sh.
 blacklist nvidia
 blacklist nvidia_drm
 blacklist nvidia_modeset
 blacklist nvidia_uvm
-blacklist nvidiafb
 install nvidia /bin/false
 install nvidia_drm /bin/false
 install nvidia_modeset /bin/false
 install nvidia_uvm /bin/false
-install nvidiafb /bin/false
 CONF
+fi
 
 # Out-of-band access for bring-up: key-only SSH for the install user and a
 # hardware probe on every boot. Networking stays with Omarchy's stack
