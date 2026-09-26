@@ -63,6 +63,6 @@ ip -brief address || true
 section "boot files"
 find /boot -maxdepth 4 -type f -printf '%p %s bytes\n' 2>/dev/null | sort || true
 
-section "SSH recovery"
-echo "sshd is enabled for the installed user with the sbull-n1x-recovery key."
+section "SSH"
+echo "sshd: $(systemctl is-enabled sshd.service 2>/dev/null || true), $(systemctl is-active sshd.service 2>/dev/null || true)"
 echo "Probe saved to $log"

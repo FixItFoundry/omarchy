@@ -45,9 +45,9 @@ if [[ -z $root_cmdline || $root_cmdline != *root=* ]]; then
 fi
 rescue_cmdline="$root_cmdline omarchy.n1x_recovery=1 acpi=nospcr plymouth.enable=0 nomodeset module_blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm,nvidia_peermem,nouveau modprobe.blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm,nvidia_peermem,nouveau nvidia_drm.modeset=0 systemd.unit=multi-user.target console=tty0 fbcon=map:0 loglevel=7 ignore_loglevel systemd.show_status=1 systemd.log_target=console udev.log_level=debug vt.global_cursor_default=1"
 printf '%s\n' \
-  '# N1x bring-up: rescue entry first until the GPU driver is proven.' \
+  '# N1x bring-up: the rescue entry sits right below the normal one.' \
   "KERNEL_CMDLINE[linux-n1x-rescue]=\"$rescue_cmdline\"" \
-  'BOOT_ORDER="linux-n1x-rescue, linux-n1x, *fallback, *, Snapshots"' \
+  'BOOT_ORDER="linux-n1x, linux-n1x-rescue, *fallback, *, Snapshots"' \
   > /etc/limine-entry-tool.d/zz-omarchy-n1x-boot-order.conf
 
 # Build the compact rescue UKI from the normal hardware-selected initramfs and
@@ -103,7 +103,7 @@ if [[ $(printf '%s\n' 1.0.0 "$bios_version" | sort -V | head -1) == 1.0.0 ]]; th
   # Early KMS lists the NVIDIA modules in the initramfs, so a DKMS build that
   # failed for this kernel would fail every UKI build. Fall back to the
   # firmware framebuffer instead: a software-rendered desktop beats no boot.
-  if modinfo -k "$n1x_kernel_version" nvidia_drm &>/dev/null; then
+  if modinfo -k "$n1x_kernel_version" nvidia nvidia_modeset nvidia_uvm nvidia_drm &>/dev/null; then
     n1x_gpu_driver=nvidia
   else
     echo "WARNING: no NVIDIA DKMS modules for $n1x_kernel_version; keeping the NVIDIA stack unloaded" >&2
