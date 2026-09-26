@@ -97,9 +97,22 @@ cat > /etc/modprobe.d/omarchy-n1x-nvidiafb.conf <<'CONF'
 blacklist nvidiafb
 install nvidiafb /bin/false
 CONF
+n1x_gpu_driver=unloaded
 if [[ $(printf '%s\n' 1.0.0 "$bios_version" | sort -V | head -1) == 1.0.0 ]]; then
-  echo "N1x firmware $bios_version: GPU drives the panel"
   omarchy-pkg-add nvidia-open-dkms nvidia-utils libva-nvidia-driver
+  # Early KMS lists the NVIDIA modules in the initramfs, so a DKMS build that
+  # failed for this kernel would fail every UKI build. Fall back to the
+  # firmware framebuffer instead: a software-rendered desktop beats no boot.
+  if modinfo -k "$n1x_kernel_version" nvidia_drm &>/dev/null; then
+    n1x_gpu_driver=nvidia
+  else
+    echo "WARNING: no NVIDIA DKMS modules for $n1x_kernel_version; keeping the NVIDIA stack unloaded" >&2
+  fi
+else
+  echo "N1x firmware $bios_version: GPU firmware cannot boot on this BIOS; keeping the NVIDIA stack unloaded"
+fi
+if [[ $n1x_gpu_driver == nvidia ]]; then
+  echo "N1x firmware $bios_version: GPU drives the panel"
   cat > /etc/modprobe.d/nvidia.conf <<'CONF'
 options nvidia_drm modeset=1 fbdev=1
 CONF
@@ -112,10 +125,9 @@ CONF
     'KERNEL_CMDLINE[default]+=" initcall_blacklist=simpledrm_platform_driver_init"' \
     > /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
 else
-  echo "N1x firmware $bios_version: GPU firmware cannot boot on this BIOS; keeping the NVIDIA stack unloaded"
   rm -f /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
   cat > /etc/modprobe.d/omarchy-n1x-nvidia-disable.conf <<'CONF'
-# N1x bring-up: pre-release firmware cannot boot this GPU's GSP; see install/hardware/n1x.sh.
+# N1x bring-up: the NVIDIA stack cannot drive this panel here; see install/hardware/n1x.sh.
 blacklist nvidia
 blacklist nvidia_drm
 blacklist nvidia_modeset
@@ -127,30 +139,10 @@ install nvidia_uvm /bin/false
 CONF
 fi
 
-# Out-of-band access for bring-up: key-only SSH for the install user and a
-# hardware probe on every boot. Networking stays with Omarchy's stack
-# (hardware/network.sh disables systemd-networkd on purpose); the USB Ethernet
-# dongle gets DHCP from NetworkManager like any other wired interface.
-omarchy-pkg-add openssh pciutils
-if [[ -n ${OMARCHY_INSTALL_USER:-} ]]; then
-  user_home=$(getent passwd "$OMARCHY_INSTALL_USER" | cut -d: -f6)
-  if [[ -n $user_home ]]; then
-    install -d -m0700 -o "$OMARCHY_INSTALL_USER" -g "$OMARCHY_INSTALL_USER" "$user_home/.ssh"
-    key='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ4eMMpL8q81NSRMKSBP+x8WGw07QxYlvLpccQnZNh7C sbull-n1x-recovery'
-    if ! grep -Fqx "$key" "$user_home/.ssh/authorized_keys" 2>/dev/null; then
-      echo "$key" >> "$user_home/.ssh/authorized_keys"
-    fi
-    chown "$OMARCHY_INSTALL_USER:$OMARCHY_INSTALL_USER" "$user_home/.ssh/authorized_keys"
-    chmod 0600 "$user_home/.ssh/authorized_keys"
-  fi
-fi
-install -d -m0755 /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/20-omarchy-n1x-recovery.conf <<'CONF'
-PubkeyAuthentication yes
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-PermitRootLogin no
-CONF
+# A hardware probe on every boot, for bring-up evidence. Remote access is
+# deliberately not configured here: the N1x development ISO carries its own,
+# separately removable SSH setup.
+omarchy-pkg-add pciutils
 # The probe ships in the runtime package (bin/omarchy-n1x-probe) so pacman
 # owns it; only the unit file is written here.
 cat > /etc/systemd/system/omarchy-n1x-probe.service <<'CONF'
@@ -169,7 +161,4 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 CONF
-systemctl enable sshd.service omarchy-n1x-probe.service
-if command -v ufw >/dev/null 2>&1; then
-  ufw allow 22/tcp >/dev/null 2>&1 || true
-fi
+systemctl enable omarchy-n1x-probe.service

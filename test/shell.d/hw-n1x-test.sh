@@ -80,6 +80,9 @@ assert_succeeds grep -Fq 'MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
 assert_succeeds grep -Fq "sort -V | head -1) == 1.0.0" "$n1x" "policy keyed on the firmware version"
 assert_succeeds grep -Fq -- '--add-uki linux-n1x-rescue' "$n1x" "rescue UKI is registered"
 assert_fails grep -Fq 'systemd-networkd.service' "$n1x" "n1x.sh does not fight network.sh over networkd"
+assert_succeeds grep -Fq 'modinfo -k "$n1x_kernel_version" nvidia_drm' "$n1x" "early KMS only when DKMS built the modules"
+assert_fails grep -Eq 'authorized_keys|sshd' "$n1x" "remote access is left to the development ISO"
+assert_succeeds grep -Fq 'Server = https://pkgs.omarchy.org/edge/$arch' "$ROOT/default/pacman/aarch64/pacman-edge.conf" "installed aarch64 systems track Omarchy edge"
 all="$ROOT/install/hardware/all.sh"
 n1x_line=$(grep -n 'hardware/n1x.sh' "$all" | cut -d: -f1)
 nvidia_line=$(grep -n 'hardware/nvidia.sh' "$all" | cut -d: -f1)
