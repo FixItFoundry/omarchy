@@ -69,7 +69,7 @@ if ! mkinitcpio --kernel "$n1x_kernel_version" --cmdline "$n1x_rescue_cmdline_fi
   return 1
 fi
 if ! limine-entry-tool --add-uki linux-n1x-rescue "$n1x_rescue_uki" \
-  --comment "N1x SSH recovery (graphics disabled)" --overwrite --quiet --no-mutex --no-hooks; then
+  --comment "N1x rescue (text console, graphics off)" --overwrite --quiet --no-mutex --no-hooks; then
   rm -f "$n1x_rescue_cmdline_file" "$n1x_rescue_uki"
   echo "Error: failed to register the N1x rescue UKI" >&2
   return 1
