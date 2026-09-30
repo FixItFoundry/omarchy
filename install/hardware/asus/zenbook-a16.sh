@@ -24,9 +24,9 @@ if omarchy-hw-qualcomm-soc &&
   # Initialize the keyboard, embedded controller, and display before disk unlock.
   mkdir -p "$mkinitcpio_dir"
   cat >"$mkinitcpio_dir/zenbook-a16-initramfs.conf" <<'CONF'
-MODULES+=(hid-asus asus_glymur_ec i2c-hid-of qrtr ps883x pmic_glink_altmode)
+MODULES+=(hid-asus asus_glymur_ec? i2c-hid-of qrtr ps883x pmic_glink_altmode)
 
-# The board-signed zap shader is included by qcom-firmware-extract.
+# The EC driver is still landing upstream; '?' keeps stock kernels buildable.\n# The board-signed zap shader is included by qcom-firmware-extract.
 for firmware in \
   qcom/gen70500_sqe.fw \
   qcom/gen70500_gmu.bin \
