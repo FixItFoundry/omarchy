@@ -20,6 +20,7 @@ printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' >"$matching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { printf '%s\n' "$*" >>"$matching/systemctl.log"; }
+  limine-mkinitcpio() { printf '%s\n' rebuild >>"$matching/boot-rebuild.log"; }
 
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$matching/compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$matching/modules-load.d" \
