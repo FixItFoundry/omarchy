@@ -42,7 +42,7 @@ grep -Fxq 'scmi-cpufreq' "$matching/modules-load.d/zenbook-a16.conf" ||
   MODULES=() FILES=()
   OMARCHY_ZENBOOK_FIRMWARE_ROOT="$firmware_root" \
     source "$matching/mkinitcpio.conf.d/zenbook-a16-initramfs.conf"
-  [[ ${MODULES[*]} == "hid-asus asus_glymur_ec i2c-hid-of qrtr ps883x pmic_glink_altmode" ]] ||
+  [[ ${MODULES[*]} == "hid-asus asus_glymur_ec? i2c-hid-of qrtr ps883x pmic_glink_altmode" ]] ||
     fail "the generated config loads the keyboard, EC, and display modules"
   (( ${#FILES[@]} == 4 )) || fail "GPU microcode is included without duplicating the board zap shader"
   [[ ${FILES[0]} == "$firmware_root/qcom/gen70500_sqe.fw.zst" ]] ||
