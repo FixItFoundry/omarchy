@@ -84,6 +84,8 @@ grep -Fq 'ConditionPathExists=!/etc/modprobe.d/qualcomm-adsp-nofw.conf' \
   fail "Zenbook A16 skips DSP startup when the generic firmware leaf blacklists it"
 grep -Fxq 'enable zenbook-a16-remoteprocs.service' "$matching/systemctl.log" ||
   fail "Zenbook A16 enables its remote processor service"
+grep -Fxq 'rebuild' "$matching/boot-rebuild.log" ||
+  fail "Zenbook A16 rebuilds initramfs and Limine entries after installing board configuration"
 
 nonmatching="$scratch/nonmatching"
 mkdir -p "$nonmatching"
@@ -92,6 +94,7 @@ printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { fail "nonmatching Qualcomm hardware does not enable Zenbook services"; }
+  limine-mkinitcpio() { fail "nonmatching Qualcomm hardware does not rebuild boot artifacts"; }
 
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$nonmatching/compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$nonmatching/modules-load.d" \
@@ -114,6 +117,7 @@ printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { [[ $1 == "UX3607OA" ]]; }
   systemctl() { :; }
+  limine-mkinitcpio() { :; }
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$scratch/no-compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$nonmatching/modules-load.d" \
     OMARCHY_ZENBOOK_MKINITCPIO_DIR="$nonmatching/mkinitcpio.conf.d" \
@@ -159,6 +163,22 @@ run_starter
 
 printf 'unrelated.mbn\n' >"$remoteprocs/remoteproc0/firmware"
 if run_starter; then fail "missing ADSP must time out, even when CDSP is running"; fi
+printf 'qcom/glymur/adsp.mbn\n' >"$remoteprocs/remoteproc0/firmware"
+printf 'running\n' >"$remoteprocs/remoteproc0/state"
+printf 'unrelated.mbn\n' >"$remoteprocs/remoteproc1/firmware"
+if run_starter; then fail "missing CDSP must time out, even when ADSP is running"; fi
+printf 'qcom/glymur/cdsp.mbn\n' >"$remoteprocs/remoteproc1/firmware"
+printf 'offline\n' >"$remoteprocs/remoteproc1/state"
+(
+  printf() {
+    [[ $1 != "start\n" ]] || return 1
+    # shellcheck disable=SC2059
+    builtin printf "$@"
+  }
+  export -f printf
+  if run_starter; then fail "a failed CDSP start must be reported"; fi
+)
+
 printf 'qcom/glymur/adsp.mbn\n' >"$remoteprocs/remoteproc0/firmware"
 printf 'offline\n' >"$remoteprocs/remoteproc0/state"
 (
