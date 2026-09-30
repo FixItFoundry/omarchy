@@ -6,6 +6,7 @@ modules_load_dir=${OMARCHY_ZENBOOK_MODULES_LOAD_DIR:-/etc/modules-load.d}
 mkinitcpio_dir=${OMARCHY_ZENBOOK_MKINITCPIO_DIR:-/etc/mkinitcpio.conf.d}
 limine_config_dir=${OMARCHY_ZENBOOK_LIMINE_CONFIG_DIR:-/etc/limine-entry-tool.d}
 systemd_dir=${OMARCHY_ZENBOOK_SYSTEMD_DIR:-/etc/systemd/system}
+rebuild_boot=${OMARCHY_ZENBOOK_REBUILD_BOOT:-1}
 
 if [[ -r $compatible_path ]]; then
   zenbook_a16_compatible=$(tr '\0' '\n' <"$compatible_path")
@@ -66,4 +67,11 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
   systemctl enable zenbook-a16-remoteprocs.service
+
+  # The mkinitcpio and Limine drop-ins above must be reflected in the boot
+  # artifacts before the first reboot, otherwise the internal keyboard,
+  # display firmware and board kernel parameters are missing at disk unlock.
+  if [[ $rebuild_boot == 1 ]]; then
+    limine-mkinitcpio
+  fi
 fi
