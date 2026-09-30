@@ -182,6 +182,7 @@ printf 'offline\n' >"$remoteprocs/remoteproc1/state"
 
 printf 'qcom/glymur/adsp.mbn\n' >"$remoteprocs/remoteproc0/firmware"
 printf 'offline\n' >"$remoteprocs/remoteproc0/state"
+printf 'running\n' >"$remoteprocs/remoteproc1/state"
 (
   printf() {
     [[ $1 != "start\n" ]] || return 1
