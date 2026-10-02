@@ -77,6 +77,7 @@ assert_succeeds grep -Fq 'install nvidia_drm /bin/false' "$n1x" "NVIDIA stack bl
 assert_succeeds grep -Fq 'options nvidia_drm modeset=1 fbdev=1' "$n1x" "GPU drives the panel on firmware >= 1.0"
 assert_succeeds grep -Fq 'initcall_blacklist=simpledrm_platform_driver_init' "$n1x" "firmware framebuffer dropped when the GPU owns the panel"
 assert_succeeds grep -Fq 'MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)' "$n1x" "early KMS on firmware >= 1.0"
+assert_succeeds grep -Fq '_omarchy_n1x_hooks+=(omarchy-n1x-boot-brightness)' "$n1x" "panel is lit right after plymouth for the LUKS prompt"
 assert_succeeds grep -Fq "sort -V | head -1) == 1.0.0" "$n1x" "policy keyed on the firmware version"
 assert_succeeds grep -Fq -- '--add-uki linux-n1x-rescue' "$n1x" "rescue UKI is registered"
 assert_fails grep -Fq 'systemd-networkd.service' "$n1x" "n1x.sh does not fight network.sh over networkd"

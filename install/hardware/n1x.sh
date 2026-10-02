@@ -122,8 +122,53 @@ CONF
     '# framebuffer so Hyprland sees one DRM device.' \
     'KERNEL_CMDLINE[default]+=" initcall_blacklist=simpledrm_platform_driver_init"' \
     > /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
+
+  # The panel stays at its dim power-on backlight until the NVIDIA backlight
+  # is first written: its DPCD brightness registers read zero and nvidia_0
+  # reports 100 regardless. systemd-backlight only writes it once the root
+  # filesystem is unlocked, so the LUKS prompt is nearly black. An initramfs
+  # hook right after plymouth writes it first.
+  mkdir -p /etc/initcpio/install /etc/initcpio/hooks
+  cat > /etc/initcpio/install/omarchy-n1x-boot-brightness <<'HOOK'
+#!/bin/bash
+
+build() {
+    add_runscript
+}
+
+help() {
+    cat <<HELPEOF
+Light the NVIDIA N1x panel for Plymouth's LUKS prompt.
+HELPEOF
+}
+HOOK
+  cat > /etc/initcpio/hooks/omarchy-n1x-boot-brightness <<'HOOK'
+#!/usr/bin/ash
+
+# The panel stays at its dim power-on backlight until the NVIDIA backlight is
+# first written, which systemd-backlight only does once the root filesystem is
+# unlocked. Write it here so Plymouth's LUKS prompt is readable;
+# systemd-backlight restores the saved level after unlock.
+run_hook() {
+    if [ -w /sys/class/backlight/nvidia_0/brightness ]; then
+        echo 60 > /sys/class/backlight/nvidia_0/brightness
+    fi
+}
+HOOK
+  cat > /etc/mkinitcpio.conf.d/zz-omarchy-n1x-boot-brightness.conf <<'CONF'
+# N1x: light the panel for Plymouth's LUKS prompt; see install/hardware/n1x.sh.
+# Sorts after omarchy_hooks.conf so HOOKS is already set.
+_omarchy_n1x_hooks=()
+for _omarchy_n1x_hook in "${HOOKS[@]}"; do
+  _omarchy_n1x_hooks+=("$_omarchy_n1x_hook")
+  [[ $_omarchy_n1x_hook == plymouth ]] && _omarchy_n1x_hooks+=(omarchy-n1x-boot-brightness)
+done
+HOOKS=("${_omarchy_n1x_hooks[@]}")
+unset _omarchy_n1x_hooks _omarchy_n1x_hook
+CONF
 else
-  rm -f /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf
+  rm -f /etc/limine-entry-tool.d/00-omarchy-n1x-gpu.conf \
+    /etc/mkinitcpio.conf.d/zz-omarchy-n1x-boot-brightness.conf
   cat > /etc/modprobe.d/omarchy-n1x-nvidia-disable.conf <<'CONF'
 # N1x bring-up: the NVIDIA stack cannot drive this panel here; see install/hardware/n1x.sh.
 blacklist nvidia
