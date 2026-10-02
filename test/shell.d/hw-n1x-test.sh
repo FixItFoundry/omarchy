@@ -79,6 +79,7 @@ assert_succeeds grep -Fq 'if omarchy-hw-match "H7407BA"; then' "$n1x" "USB4 cmdl
 assert_succeeds grep -Fq 'ATTR{vendor}=="0x10de", ATTR{device}=="0x22cf", ATTR{power/control}="on"' "$n1x" "USB4 tunnel root ports stay awake for docks plugged in later"
 assert_fails grep -Fq 'KERNEL_CMDLINE[default]+=" console=tty0' "$n1x" "the installer pins the console on every aarch64 install, not n1x.sh again"
 assert_succeeds grep -Fq 'console=tty0 acpi=nospcr plymouth.enable=0' "$n1x" "the rescue entry pins the panel console itself"
+assert_succeeds grep -Fq 'rescue_cmdline="$root_cmdline initramfs_async=0 ' "$n1x" "the rescue entry unpacks its initramfs before init, like every other entry"
 assert_succeeds grep -Fq "'MKINITCPIO_FALLBACK=linux-omarchy-n1x'" "$n1x" "rescue entry is the hook-maintained fallback UKI"
 assert_succeeds grep -Fq 'KERNEL_CMDLINE[fallback]=' "$n1x" "rescue entry has its own cmdline key"
 assert_succeeds grep -Fq 'BOOT_ORDER="linux-omarchy-n1x, linux-omarchy-n1x-fallback, *, Snapshots"' "$n1x" "normal entry boots by default, rescue next"

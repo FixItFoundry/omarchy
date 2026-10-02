@@ -77,7 +77,7 @@ run_migration
 boot_order="$tmp_dir/etc/limine-entry-tool.d/zz-omarchy-n1x-boot-order.conf"
 grep -Fq 'omarchy-pkg-add linux-omarchy-n1x linux-omarchy-n1x-headers' "$CALL_LOG" && pass "the new kernel is installed" || fail "the new kernel is installed"
 grep -Fq 'MKINITCPIO_FALLBACK=linux-omarchy-n1x' "$boot_order" && pass "the rescue entry becomes the fallback UKI" || fail "the rescue entry becomes the fallback UKI"
-grep -Fq 'KERNEL_CMDLINE[fallback]="cryptdevice=PARTUUID=x:root root=/dev/mapper/root rw console=tty0' "$boot_order" && pass "the rescue cmdline keeps the root device" || fail "the rescue cmdline keeps the root device"
+grep -Fq 'KERNEL_CMDLINE[fallback]="cryptdevice=PARTUUID=x:root root=/dev/mapper/root rw initramfs_async=0 console=tty0' "$boot_order" && pass "the rescue cmdline keeps the root device" || fail "the rescue cmdline keeps the root device"
 grep -Fq 'BOOT_ORDER="linux-omarchy-n1x, linux-omarchy-n1x-fallback, *, Snapshots"' "$boot_order" && pass "linux-omarchy-n1x boots by default" || fail "linux-omarchy-n1x boots by default"
 grep -Fq 'i2c_mt65xx i2c_hid_acpi' "$tmp_dir/etc/mkinitcpio.conf.d/omarchy-n1x-input.conf" && pass "keyboard modules move into their own drop-in" || fail "keyboard modules move into their own drop-in"
 grep -Fq 'mem_sleep_default=s2idle' "$tmp_dir/etc/limine-entry-tool.d/00-omarchy-n1x-sleep.conf" && pass "suspend to idle is set" || fail "suspend to idle is set"
