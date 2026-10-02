@@ -63,14 +63,14 @@ assert_fails hw_n1x "a Spark (2e12, Tegra I2C ids) is not N1x"
 write_sysfs "" "0x8086:0x1234"
 assert_fails hw_n1x "an unrelated machine is not N1x"
 
-# hardware/n1x.sh contract: guarded by the detector, console pinned, quiet
-# defeated through the alphabetically-first drop-in, rescue entry carries its
-# own cmdline, NVIDIA kept unloaded, and wired before nvidia.sh.
+# hardware/n1x.sh contract: guarded by the detector, console pinned, the
+# normal entry left quiet, rescue entry carries its own cmdline, NVIDIA kept
+# unloaded, and wired before nvidia.sh.
 n1x="$ROOT/install/hardware/n1x.sh"
 assert_succeeds bash -n "$n1x" "n1x.sh parses"
 assert_succeeds grep -Fq 'omarchy-hw-n1x || return 0' "$n1x" "n1x.sh is gated on the detector"
-assert_succeeds grep -Fq '/etc/limine-entry-tool.d/00-omarchy-n1x-console.conf' "$n1x" "console drop-in sorts first"
-assert_succeeds grep -Fq 'console=tty0 acpi=nospcr loglevel=7' "$n1x" "console fragment pins the panel and defeats quiet"
+assert_succeeds grep -Fq '/etc/limine-entry-tool.d/00-omarchy-n1x-console.conf' "$n1x" "console drop-in is written"
+assert_succeeds grep -Fq 'KERNEL_CMDLINE[default]+=" console=tty0 acpi=nospcr"' "$n1x" "console fragment pins the panel and leaves the boot quiet"
 assert_succeeds grep -Fq 'KERNEL_CMDLINE[linux-n1x-rescue]=' "$n1x" "rescue entry has its own cmdline key"
 assert_succeeds grep -Fq 'BOOT_ORDER="linux-n1x, linux-n1x-rescue, *fallback, *, Snapshots"' "$n1x" "normal entry boots by default, rescue next"
 assert_succeeds grep -Fq 'install nvidia_drm /bin/false' "$n1x" "NVIDIA stack blocked against explicit loads on pre-release firmware"

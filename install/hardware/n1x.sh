@@ -21,17 +21,15 @@ fi
 #
 # The firmware publishes an ACPI SPCR serial console at 0x16a00000; without
 # acpi=nospcr the kernel adopts it and the LUKS prompt and any initramfs
-# emergency shell go to a UART nobody is watching. limine-entry-tool prepends
-# each "+=" fragment, reading drop-ins alphabetically after /etc/default/limine,
-# so the fragment from the alphabetically FIRST drop-in ends up LAST on the
-# kernel command line and wins every last-wins parameter (loglevel,
-# systemd.show_status, ...) over omarchy-defaults.conf. BOOT_ORDER is a plain
-# assignment where the last file read wins, hence the second, zz-, drop-in.
+# emergency shell go to a UART nobody is watching. The normal entry otherwise
+# boots as quietly as on x86, so Plymouth stays up from the LUKS prompt to the
+# login screen; the rescue entry below is the verbose one. BOOT_ORDER is a
+# plain assignment where the last file read wins, hence the zz- drop-in.
 mkdir -p /etc/limine-entry-tool.d
 cat > /etc/limine-entry-tool.d/00-omarchy-n1x-console.conf <<'CONF'
-# N1x bring-up: keep the console on the panel and the boot verbose. Sorted first
-# on purpose; see install/hardware/n1x.sh.
-KERNEL_CMDLINE[default]+=" console=tty0 acpi=nospcr loglevel=7 systemd.show_status=1 rd.udev.log_level=info vt.global_cursor_default=1"
+# N1x: keep the console on the panel rather than the firmware's serial port;
+# see install/hardware/n1x.sh.
+KERNEL_CMDLINE[default]+=" console=tty0 acpi=nospcr"
 CONF
 
 # Rescue entry: same kernel and initramfs, NVIDIA blacklisted, multi-user
