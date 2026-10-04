@@ -76,6 +76,7 @@ assert_succeeds grep -Fq 'MODULES+=(i2c_mt65xx i2c_hid_acpi)' "$n1x" "the intern
 assert_succeeds grep -Fq 'KERNEL_CMDLINE[default]+=" mem_sleep_default=s2idle"' "$n1x" "suspend to idle instead of the firmware's deep sleep"
 assert_succeeds grep -Fq 'power_wrap_drv.usb4_release=0 pci=hpbussize=0x80,hpmmiosize=32M,hpmmioprefsize=32G' "$n1x" "USB4 host routers stay powered with room for docks"
 assert_succeeds grep -Fq 'if omarchy-hw-match "H7407BA"; then' "$n1x" "USB4 cmdline only where it is validated"
+assert_succeeds grep -Fq 'ATTR{vendor}=="0x10de", ATTR{device}=="0x22cf", ATTR{power/control}="on"' "$n1x" "USB4 tunnel root ports stay awake for docks plugged in later"
 assert_fails grep -Fq 'KERNEL_CMDLINE[default]+=" console=tty0' "$n1x" "the installer pins the console on every aarch64 install, not n1x.sh again"
 assert_succeeds grep -Fq 'console=tty0 acpi=nospcr plymouth.enable=0' "$n1x" "the rescue entry pins the panel console itself"
 assert_succeeds grep -Fq "'MKINITCPIO_FALLBACK=linux-omarchy-n1x'" "$n1x" "rescue entry is the hook-maintained fallback UKI"

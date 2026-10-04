@@ -53,14 +53,25 @@ CONF
 # which power_wrap would otherwise release once xHCI is up; the SSPM cannot
 # power them again after that. The tunnel root ports are left unconfigured by
 # the firmware, so reserve bus numbers and windows for docks behind them. A
-# dock or adapter is approved once with `boltctl enroll --policy auto`. Only
-# validated on the ASUS ProArt P14 so far.
+# dock or adapter is approved through Omarchy's Thunderbolt authorization
+# prompt, like any other accessory. Only validated on the ASUS ProArt P14 so far.
+#
+# The tunnel root ports (10de:22cf) cannot signal a hotplug from D3hot or
+# D3cold, so once one has runtime-suspended, a PCIe tunnel that comes up behind
+# it is never enumerated: the dock is authorized but its Ethernet never
+# appears, until something happens to read the port's config space. Keep the
+# three of them in D0.
 if omarchy-hw-match "H7407BA"; then
   cat > /etc/limine-entry-tool.d/00-omarchy-n1x-usb4.conf <<'CONF'
 # N1x: keep the USB4 host routers powered and leave room for docks behind them;
 # see install/hardware/n1x.sh.
 KERNEL_CMDLINE[default]+=" power_wrap_drv.usb4_release=0 pci=hpbussize=0x80,hpmmiosize=32M,hpmmioprefsize=32G"
 CONF
+  cat > /etc/udev/rules.d/71-omarchy-n1x-usb4-root-ports.rules <<'RULES'
+# N1x: the USB4 tunnel root ports cannot wake for a hotplug, so keep them out of
+# runtime suspend; see install/hardware/n1x.sh.
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x22cf", ATTR{power/control}="on"
+RULES
 fi
 
 # Rescue entry: limine-mkinitcpio-hook builds a fallback UKI for the kernel
