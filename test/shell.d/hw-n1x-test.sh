@@ -63,23 +63,34 @@ assert_fails hw_n1x "a Spark (2e12, Tegra I2C ids) is not N1x"
 write_sysfs "" "0x8086:0x1234"
 assert_fails hw_n1x "an unrelated machine is not N1x"
 
-# hardware/n1x.sh contract: guarded by the detector, console pinned, the
-# normal entry left quiet, rescue entry carries its own cmdline, NVIDIA kept
-# unloaded, and wired before nvidia.sh.
+# hardware/n1x.sh contract: guarded by the detector, on linux-omarchy-n1x,
+# console pinned, the normal entry left quiet, a maintained rescue entry with
+# its own cmdline, NVIDIA kept unloaded only on pre-release firmware, and wired
+# before nvidia.sh.
 n1x="$ROOT/install/hardware/n1x.sh"
 assert_succeeds bash -n "$n1x" "n1x.sh parses"
 assert_succeeds grep -Fq 'omarchy-hw-n1x || return 0' "$n1x" "n1x.sh is gated on the detector"
+assert_succeeds grep -Fq 'omarchy-pkg-add linux-omarchy-n1x linux-omarchy-n1x-headers' "$n1x" "N1x runs linux-omarchy-n1x"
+assert_fails grep -Eq 'pacman -R' "$n1x" "kernels are removed through omarchy-pkg-drop"
+assert_succeeds grep -Fq 'MODULES+=(i2c_mt65xx i2c_hid_acpi)' "$n1x" "the internal keyboard works at the LUKS prompt"
+assert_succeeds grep -Fq 'KERNEL_CMDLINE[default]+=" mem_sleep_default=s2idle"' "$n1x" "suspend to idle instead of the firmware's deep sleep"
+assert_succeeds grep -Fq 'power_wrap_drv.usb4_release=0 pci=hpbussize=0x80,hpmmiosize=32M,hpmmioprefsize=32G' "$n1x" "USB4 host routers stay powered with room for docks"
+assert_succeeds grep -Fq 'if omarchy-hw-match "H7407BA"; then' "$n1x" "USB4 cmdline only where it is validated"
 assert_succeeds grep -Fq '/etc/limine-entry-tool.d/00-omarchy-n1x-console.conf' "$n1x" "console drop-in is written"
 assert_succeeds grep -Fq 'KERNEL_CMDLINE[default]+=" console=tty0 acpi=nospcr"' "$n1x" "console fragment pins the panel and leaves the boot quiet"
-assert_succeeds grep -Fq 'KERNEL_CMDLINE[linux-n1x-rescue]=' "$n1x" "rescue entry has its own cmdline key"
-assert_succeeds grep -Fq 'BOOT_ORDER="linux-n1x, linux-n1x-rescue, *fallback, *, Snapshots"' "$n1x" "normal entry boots by default, rescue next"
+assert_succeeds grep -Fq "'MKINITCPIO_FALLBACK=linux-omarchy-n1x'" "$n1x" "rescue entry is the hook-maintained fallback UKI"
+assert_succeeds grep -Fq 'KERNEL_CMDLINE[fallback]=' "$n1x" "rescue entry has its own cmdline key"
+assert_succeeds grep -Fq 'BOOT_ORDER="linux-omarchy-n1x, linux-omarchy-n1x-fallback, *, Snapshots"' "$n1x" "normal entry boots by default, rescue next"
+assert_succeeds grep -Fq 'EXCLUDE_SNAPSHOT_ENTRIES="Windows*, windows*, *fallback"' "$n1x" "snapshots leave the rescue entry out"
 assert_succeeds grep -Fq 'install nvidia_drm /bin/false' "$n1x" "NVIDIA stack blocked against explicit loads on pre-release firmware"
-assert_succeeds grep -Fq 'options nvidia_drm modeset=1 fbdev=1' "$n1x" "GPU drives the panel on firmware >= 1.0"
+assert_succeeds grep -Fq 'options nvidia_drm modeset=1 fbdev=1' "$n1x" "GPU drives the panel on release firmware"
 assert_succeeds grep -Fq 'initcall_blacklist=simpledrm_platform_driver_init' "$n1x" "firmware framebuffer dropped when the GPU owns the panel"
-assert_succeeds grep -Fq 'MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)' "$n1x" "early KMS on firmware >= 1.0"
+assert_succeeds grep -Fq 'MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)' "$n1x" "early KMS on release firmware"
 assert_succeeds grep -Fq '_omarchy_n1x_hooks+=(omarchy-n1x-boot-brightness)' "$n1x" "panel is lit right after plymouth for the LUKS prompt"
-assert_succeeds grep -Fq "sort -V | head -1) == 1.0.0" "$n1x" "policy keyed on the firmware version"
-assert_succeeds grep -Fq -- '--add-uki linux-n1x-rescue' "$n1x" "rescue UKI is registered"
+assert_succeeds grep -Fq 'if [[ ! $bios_version =~ ^0\. ]]; then' "$n1x" "only pre-release firmware keeps the GPU stack unloaded"
+assert_fails grep -Fq 'sort -V' "$n1x" "firmware policy does not version-sort vendor strings"
+assert_fails grep -Fq -- '--add-uki' "$n1x" "no one-off rescue UKI that kernel updates leave behind"
+assert_fails grep -Fq 'systemctl enable' "$n1x" "the probe runs on demand, not on every boot"
 assert_fails grep -Fq 'systemd-networkd.service' "$n1x" "n1x.sh does not fight network.sh over networkd"
 assert_succeeds grep -Fq 'modinfo -k "$n1x_kernel_version" nvidia nvidia_modeset nvidia_uvm nvidia_drm' "$n1x" "early KMS only when DKMS built every early-loaded module"
 assert_fails grep -Eq 'authorized_keys|recovery key|n1x-recovery' "$ROOT/bin/omarchy-n1x-probe" "the probe reports sshd state instead of claiming a key"
@@ -90,6 +101,19 @@ n1x_line=$(grep -n 'hardware/n1x.sh' "$all" | cut -d: -f1)
 nvidia_line=$(grep -n 'hardware/nvidia.sh' "$all" | cut -d: -f1)
 [[ -n $n1x_line && -n $nvidia_line && $n1x_line -lt $nvidia_line ]] || fail "n1x.sh must run before nvidia.sh"
 assert_succeeds grep -Fq 'if omarchy-hw-n1x; then' "$ROOT/install/hardware/nvidia.sh" "nvidia.sh defers to the N1x policy"
-assert_succeeds grep -Fq 'if [[ $(uname -m) == aarch64 ]]; then' "$ROOT/etc/mkinitcpio.conf.d/omarchy_hooks.conf" "initramfs hooks branch on aarch64"
-assert_succeeds grep -Fq 'MODULES+=(i2c_mt65xx i2c_tegra i2c_hid i2c_hid_acpi hid_generic hid_multitouch usbhid)' "$ROOT/etc/mkinitcpio.conf.d/omarchy_hooks.conf" "early I2C-HID input modules on aarch64"
+hooks_conf="$ROOT/etc/mkinitcpio.conf.d/omarchy_hooks.conf"
+assert_fails grep -Fq 'uname -m' "$hooks_conf" "initramfs hooks are the same on every architecture"
+assert_fails grep -Fq 'i2c_mt65xx' "$hooks_conf" "N1x input modules stay out of the shared hooks"
+# mkinitcpio sources the platform's HOOKS baseline before the adjustments.
+hooks_have_plymouth() {
+  (
+    HOOKS=()
+    MODULES=()
+    OMARCHY_PCI_DEVICES_PATH="$tmp_dir/pci"
+    source "$ROOT/etc/mkinitcpio.conf.d/00-omarchy-hooks.conf"
+    source "$hooks_conf"
+    [[ " ${HOOKS[*]} " == *" plymouth "* ]]
+  )
+}
+assert_succeeds hooks_have_plymouth "Plymouth stays in the initramfs"
 
