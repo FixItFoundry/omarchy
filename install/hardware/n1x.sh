@@ -33,16 +33,13 @@ CONF
 #
 # The firmware publishes an ACPI SPCR serial console at 0x16a00000; without
 # acpi=nospcr the kernel adopts it and the LUKS prompt and any initramfs
-# emergency shell go to a UART nobody is watching. The normal entry otherwise
-# boots as quietly as on x86, so Plymouth stays up from the LUKS prompt to the
-# login screen; the rescue entry below is the verbose one. BOOT_ORDER is a
-# plain assignment where the last file read wins, hence the zz- drop-in.
+# emergency shell go to a UART nobody is watching. The ISO installer gives
+# every aarch64 install console=tty0 acpi=nospcr (00-omarchy-console.conf). The
+# normal entry otherwise boots as quietly as on x86, so Plymouth stays up from
+# the LUKS prompt to the login screen; the rescue entry below is the verbose
+# one. BOOT_ORDER is a plain assignment where the last file read wins, hence
+# the zz- drop-in.
 mkdir -p /etc/limine-entry-tool.d
-cat > /etc/limine-entry-tool.d/00-omarchy-n1x-console.conf <<'CONF'
-# N1x: keep the console on the panel rather than the firmware's serial port;
-# see install/hardware/n1x.sh.
-KERNEL_CMDLINE[default]+=" console=tty0 acpi=nospcr"
-CONF
 
 # The firmware advertises PSCI system suspend, so the kernel defaults to "deep"
 # sleep, but the call returns at once and the laptop wakes straight back up.
