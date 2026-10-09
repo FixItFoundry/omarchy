@@ -20,7 +20,6 @@ printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' >"$matching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { printf '%s\n' "$*" >>"$matching/systemctl.log"; }
-  limine-mkinitcpio() { printf '%s\n' rebuild >>"$matching/boot-rebuild.log"; }
 
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$matching/compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$matching/modules-load.d" \
@@ -67,8 +66,6 @@ grep -Fxq 'scmi-cpufreq' "$matching/modules-load.d/zenbook-a16.conf" ||
     fail "Zenbook A16 uses the laptop console for graphical disk unlock"
   [[ " ${KERNEL_CMDLINE[default]} " == *" glymur_pci_skip=5 "* ]] ||
     fail "Zenbook A16 skips suspend-breaking PCI bridge 5"
-  [[ " ${KERNEL_CMDLINE[default]} " == *" cma=128M "* ]] ||
-    fail "Zenbook A16 allocates sufficient CMA memory"
   [[ " ${KERNEL_CMDLINE[default]} " == *" systemd.mask=dev-tpm0.device "* ]] ||
     fail "Zenbook A16 masks lockup-prone TPM device"
   [[ " ${KERNEL_CMDLINE[default]} " != *" initcall_blacklist=simpledrm_platform_driver_init "* ]] ||
@@ -85,8 +82,6 @@ grep -Fq 'ConditionPathExists=!/etc/modprobe.d/qualcomm-adsp-nofw.conf' \
   fail "Zenbook A16 skips DSP startup when the generic firmware leaf blacklists it"
 grep -Fxq 'enable zenbook-a16-remoteprocs.service' "$matching/systemctl.log" ||
   fail "Zenbook A16 enables its remote processor service"
-grep -Fxq 'rebuild' "$matching/boot-rebuild.log" ||
-  fail "Zenbook A16 rebuilds initramfs and Limine entries after installing board configuration"
 
 nonmatching="$scratch/nonmatching"
 mkdir -p "$nonmatching"
@@ -95,7 +90,6 @@ printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { fail "nonmatching Qualcomm hardware does not enable Zenbook services"; }
-  limine-mkinitcpio() { fail "nonmatching Qualcomm hardware does not rebuild boot artifacts"; }
 
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$nonmatching/compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$nonmatching/modules-load.d" \
@@ -118,7 +112,6 @@ printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
   omarchy-hw-qualcomm-soc() { return 0; }
   omarchy-hw-match() { [[ $1 == "UX3607OA" ]]; }
   systemctl() { :; }
-  limine-mkinitcpio() { :; }
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$scratch/no-compatible" \
     OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$nonmatching/modules-load.d" \
     OMARCHY_ZENBOOK_MKINITCPIO_DIR="$nonmatching/mkinitcpio.conf.d" \

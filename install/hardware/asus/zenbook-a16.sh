@@ -6,7 +6,6 @@ modules_load_dir=${OMARCHY_ZENBOOK_MODULES_LOAD_DIR:-/etc/modules-load.d}
 mkinitcpio_dir=${OMARCHY_ZENBOOK_MKINITCPIO_DIR:-/etc/mkinitcpio.conf.d}
 limine_config_dir=${OMARCHY_ZENBOOK_LIMINE_CONFIG_DIR:-/etc/limine-entry-tool.d}
 systemd_dir=${OMARCHY_ZENBOOK_SYSTEMD_DIR:-/etc/systemd/system}
-rebuild_boot=${OMARCHY_ZENBOOK_REBUILD_BOOT:-1}
 
 if [[ -r $compatible_path ]]; then
   zenbook_a16_compatible=$(tr '\0' '\n' <"$compatible_path")
@@ -14,7 +13,7 @@ fi
 
 if omarchy-hw-qualcomm-soc &&
   { grep -qiE '^(asus,zenbook-a16-ux3607oa|asus,ux3607oa)$' <<<"$zenbook_a16_compatible" ||
-    omarchy-hw-match 'Zenbook A16' || omarchy-hw-match 'UX3607OA'; }; then
+    omarchy-hw-match 'UX3607OA'; }; then
   echo "Detected ASUS Zenbook A16 UX3607OA, applying board-specific support..."
 
   # The Zenbook A16 exposes its CPU performance domains through SCMI.
@@ -49,7 +48,7 @@ CONF
   mkdir -p "$limine_config_dir"
   cat >"$limine_config_dir/zenbook-a16.conf" <<'CONF'
 # Keep display and power domains alive; skip suspend-breaking PCI bridge 5; mask TPM lockups.
-KERNEL_CMDLINE[default]+=" clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device plymouth.enable=0 systemd.show_status=true vt.global_cursor_default=1"
+KERNEL_CMDLINE[default]+=" glymur_pci_skip=5 console=tty0 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device plymouth.enable=0 systemd.show_status=true vt.global_cursor_default=1"
 CONF
 
   # Start the board's DSP remote processors.
@@ -72,7 +71,4 @@ UNIT
   # The mkinitcpio and Limine drop-ins above must be reflected in the boot
   # artifacts before the first reboot, otherwise the internal keyboard,
   # display firmware and board kernel parameters are missing at disk unlock.
-  if [[ $rebuild_boot == 1 ]]; then
-    limine-mkinitcpio
-  fi
 fi
