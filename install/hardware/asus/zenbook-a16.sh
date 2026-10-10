@@ -11,7 +11,7 @@ if [[ -r $compatible_path ]]; then
   zenbook_a16_compatible=$(tr '\0' '\n' <"$compatible_path")
 fi
 
-if omarchy-hw-qualcomm-soc &&
+if omarchy-hw-aarch64-qualcomm &&
   { grep -qiE '^(asus,zenbook-a16-ux3607oa|asus,ux3607oa)$' <<<"$zenbook_a16_compatible" ||
     omarchy-hw-match 'UX3607OA'; }; then
   echo "Detected ASUS Zenbook A16 UX3607OA, applying board-specific support..."

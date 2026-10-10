@@ -17,7 +17,7 @@ matching="$scratch/matching"
 mkdir -p "$matching"
 printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' >"$matching/compatible"
 (
-  omarchy-hw-qualcomm-soc() { return 0; }
+  omarchy-hw-aarch64-qualcomm() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { printf '%s\n' "$*" >>"$matching/systemctl.log"; }
 
@@ -87,7 +87,7 @@ nonmatching="$scratch/nonmatching"
 mkdir -p "$nonmatching"
 printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
 (
-  omarchy-hw-qualcomm-soc() { return 0; }
+  omarchy-hw-aarch64-qualcomm() { return 0; }
   omarchy-hw-match() { return 1; }
   systemctl() { fail "nonmatching Qualcomm hardware does not enable Zenbook services"; }
 
@@ -109,7 +109,7 @@ printf 'qcom,x1e80100\0hp,elitebook-ultra-g1q\0' >"$nonmatching/compatible"
   fail "nonmatching Qualcomm hardware does not get Zenbook services"
 
 (
-  omarchy-hw-qualcomm-soc() { return 0; }
+  omarchy-hw-aarch64-qualcomm() { return 0; }
   omarchy-hw-match() { [[ $1 == "UX3607OA" ]]; }
   systemctl() { :; }
   OMARCHY_ZENBOOK_COMPATIBLE_PATH="$scratch/no-compatible" \
