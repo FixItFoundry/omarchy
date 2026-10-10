@@ -4,7 +4,7 @@ echo "List Omarchy's aarch64 repository ahead of Arch Linux ARM's on the N1x"
 # (its NVIDIA driver among them) win over Arch Linux ARM's. Installs from
 # earlier N1x images list it last, where an Arch Linux ARM update could replace
 # them. Move the [omarchy] section in place so other edits to the file survive.
-if ! omarchy-hw-n1x; then
+if ! omarchy-hw-aarch64-n1x; then
   exit 0
 fi
 

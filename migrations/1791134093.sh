@@ -4,7 +4,7 @@ echo "Keep the ASUS ProArt P14's USB4 tunnel root ports awake so a dock's Ethern
 rules="${OMARCHY_N1X_USB4_ROOT_PORT_RULES:-/etc/udev/rules.d/71-omarchy-n1x-usb4-root-ports.rules}"
 pci_devices="${OMARCHY_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
 
-if ! omarchy-hw-n1x || ! omarchy-hw-match "H7407BA"; then
+if ! omarchy-hw-aarch64-n1x || ! omarchy-hw-match "H7407BA"; then
   exit 0
 fi
 

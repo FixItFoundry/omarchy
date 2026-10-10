@@ -5,7 +5,7 @@ echo "Give the N1x swap on zram, the memory tuning and realtime audio scheduling
 # systemd-oomd's slice policy. Installs from the earlier N1x images ran with no
 # swap at all, and without rtkit, which nothing pulls in on aarch64, so
 # PipeWire got no realtime scheduling.
-if ! omarchy-hw-n1x; then
+if ! omarchy-hw-aarch64-n1x; then
   exit 0
 fi
 

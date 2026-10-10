@@ -13,7 +13,7 @@ export PATH="$tmp_dir/bin:$PATH"
 for command in omarchy-pkg-add omarchy-pkg-drop limine-entry-tool limine-mkinitcpio systemctl; do
   printf '#!/bin/bash\necho "%s $*" >> "$CALL_LOG"\n' "$command" > "$tmp_dir/bin/$command"
 done
-cat > "$tmp_dir/bin/omarchy-hw-n1x" <<'SH'
+cat > "$tmp_dir/bin/omarchy-hw-aarch64-n1x" <<'SH'
 #!/bin/bash
 [[ ${IS_N1X:-1} == 1 ]]
 SH

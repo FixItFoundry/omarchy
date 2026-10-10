@@ -1,7 +1,7 @@
 # The NVIDIA N1x laptop's on-package GPU (10de:2e06) is handled by
 # install/hardware/n1x.sh: whether the GPU may drive the panel depends on the
 # system firmware and on the DKMS build, and there are no 32-bit libraries.
-if omarchy-hw-n1x; then
+if omarchy-hw-aarch64-n1x; then
   echo "NVIDIA N1x platform detected; GPU driver policy is owned by hardware/n1x.sh"
 elif lspci | grep -qi 'nvidia'; then
   if omarchy-hw-nvidia-gsp; then

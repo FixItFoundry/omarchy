@@ -8,7 +8,7 @@ kernel_cmdline="${OMARCHY_KERNEL_CMDLINE:-/etc/kernel/cmdline}"
 probe_unit="${OMARCHY_N1X_PROBE_UNIT:-/etc/systemd/system/omarchy-n1x-probe.service}"
 rebuild_marker="${OMARCHY_LIMINE_REBUILD_MARKER:-/var/lib/omarchy/migrations/1791077437}"
 
-omarchy-hw-n1x || exit 0
+omarchy-hw-aarch64-n1x || exit 0
 
 # Everything below is machine-wide. The marker lets another user's run skip it,
 # while a missing marker still retries an interrupted run.

@@ -17,23 +17,23 @@ assert_fails() {
   if "${@:1:$#-1}" >/dev/null 2>&1; then fail "$description"; else pass "$description"; fi
 }
 
-# omarchy-hw-n1x reads sysfs paths that tests can redirect, and refuses any
-# machine that is not aarch64. Only the sysfs half is exercised here; the
-# uname gate is checked by running the real script on this (x86_64) host.
+# omarchy-hw-aarch64-n1x asks omarchy-hw-platform, which reads a fixture sysfs
+# root when one is named (never as root) and refuses any machine that is not
+# aarch64.
 write_sysfs() {
-  rm -rf "$tmp_dir/acpi" "$tmp_dir/pci"
-  mkdir -p "$tmp_dir/acpi" "$tmp_dir/pci"
+  rm -rf "$tmp_dir/sys"
+  mkdir -p "$tmp_dir/sys/bus/acpi/devices" "$tmp_dir/sys/bus/pci/devices"
   local acpi_id
   for acpi_id in $1; do
-    mkdir -p "$tmp_dir/acpi/$acpi_id"
+    mkdir -p "$tmp_dir/sys/bus/acpi/devices/$acpi_id"
   done
   local index=0 spec
   for spec in $2; do
     local slot
     slot=$(printf '0000:%02x:00.0' "$index")
-    mkdir -p "$tmp_dir/pci/$slot"
-    printf '%s\n' "${spec%%:*}" >"$tmp_dir/pci/$slot/vendor"
-    printf '%s\n' "${spec##*:}" >"$tmp_dir/pci/$slot/device"
+    mkdir -p "$tmp_dir/sys/bus/pci/devices/$slot"
+    printf '%s\n' "${spec%%:*}" >"$tmp_dir/sys/bus/pci/devices/$slot/vendor"
+    printf '%s\n' "${spec##*:}" >"$tmp_dir/sys/bus/pci/devices/$slot/device"
     index=$((index + 1))
   done
 }
@@ -42,15 +42,17 @@ hw_n1x() {
   # Pretend to be aarch64 by shadowing uname on PATH.
   local shim="$tmp_dir/bin"
   mkdir -p "$shim"
-  printf '#!/bin/bash\necho aarch64\n' >"$shim/uname"
+  printf '#!/bin/bash\n[[ ${1:-} == -m ]] && { echo aarch64; exit 0; }\nexec /usr/bin/uname "$@"\n' >"$shim/uname"
   chmod +x "$shim/uname"
-  PATH="$shim:$PATH" OMARCHY_ACPI_DEVICES_PATH="$tmp_dir/acpi" OMARCHY_PCI_DEVICES_PATH="$tmp_dir/pci" "$ROOT/bin/omarchy-hw-n1x"
+  PATH="$shim:$ROOT/bin:$PATH" OMARCHY_SYS_ROOT="$tmp_dir/sys" "$ROOT/bin/omarchy-hw-aarch64-n1x" 2>/dev/null
 }
 
 if [[ $(uname -m) != aarch64 ]]; then
-  assert_fails "$ROOT/bin/omarchy-hw-n1x" "non-aarch64 host is never N1x"
+  assert_fails "$ROOT/bin/omarchy-hw-aarch64-n1x" "non-aarch64 host is never N1x"
 fi
 
+# Root reads the live machine, never a fixture.
+if (( EUID != 0 )); then
 write_sysfs "NVDA0200:00 NVDA0200:03 ARML0002:00" ""
 assert_succeeds hw_n1x "MediaTek I2C controllers (NVDA0200) identify N1x"
 
@@ -62,6 +64,7 @@ assert_fails hw_n1x "a Spark (2e12, Tegra I2C ids) is not N1x"
 
 write_sysfs "" "0x8086:0x1234"
 assert_fails hw_n1x "an unrelated machine is not N1x"
+fi
 
 # hardware/n1x.sh contract: guarded by the detector, on linux-omarchy-n1x,
 # console pinned, the normal entry left quiet, a maintained rescue entry with
@@ -69,7 +72,7 @@ assert_fails hw_n1x "an unrelated machine is not N1x"
 # before nvidia.sh.
 n1x="$ROOT/install/hardware/n1x.sh"
 assert_succeeds bash -n "$n1x" "n1x.sh parses"
-assert_succeeds grep -Fq 'omarchy-hw-n1x || return 0' "$n1x" "n1x.sh is gated on the detector"
+assert_succeeds grep -Fq 'omarchy-hw-aarch64-n1x || return 0' "$n1x" "n1x.sh is gated on the detector"
 assert_succeeds grep -Fq 'omarchy-pkg-add linux-omarchy-n1x linux-omarchy-n1x-headers' "$n1x" "N1x runs linux-omarchy-n1x"
 assert_fails grep -Eq 'pacman -R' "$n1x" "kernels are removed through omarchy-pkg-drop"
 assert_succeeds grep -Fq 'MODULES+=(i2c_mt65xx i2c_hid_acpi)' "$n1x" "the internal keyboard works at the LUKS prompt"
@@ -103,7 +106,7 @@ all="$ROOT/install/hardware/all.sh"
 n1x_line=$(grep -n 'hardware/n1x.sh' "$all" | cut -d: -f1)
 nvidia_line=$(grep -n 'hardware/nvidia.sh' "$all" | cut -d: -f1)
 [[ -n $n1x_line && -n $nvidia_line && $n1x_line -lt $nvidia_line ]] || fail "n1x.sh must run before nvidia.sh"
-assert_succeeds grep -Fq 'if omarchy-hw-n1x; then' "$ROOT/install/hardware/nvidia.sh" "nvidia.sh defers to the N1x policy"
+assert_succeeds grep -Fq 'if omarchy-hw-aarch64-n1x; then' "$ROOT/install/hardware/nvidia.sh" "nvidia.sh defers to the N1x policy"
 hooks_conf="$ROOT/etc/mkinitcpio.conf.d/omarchy_hooks.conf"
 assert_fails grep -Fq 'uname -m' "$hooks_conf" "initramfs hooks are the same on every architecture"
 assert_fails grep -Fq 'i2c_mt65xx' "$hooks_conf" "N1x input modules stay out of the shared hooks"

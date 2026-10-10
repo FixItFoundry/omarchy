@@ -6,7 +6,7 @@ echo "Turn on USB4 and Thunderbolt on the N1x"
 dropin=/etc/limine-entry-tool.d/00-omarchy-n1x-usb4.conf
 
 # The ASUS ProArt P14 gets its own, validated USB4 settings from 1791077437.
-if ! omarchy-hw-n1x || omarchy-hw-match "H7407BA" || [[ -f $dropin ]]; then
+if ! omarchy-hw-aarch64-n1x || omarchy-hw-match "H7407BA" || [[ -f $dropin ]]; then
   exit 0
 fi
 

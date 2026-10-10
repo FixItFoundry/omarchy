@@ -3,7 +3,7 @@
 # omarchy-apply-hardware, after the settings package has dropped its Limine and
 # mkinitcpio defaults and before the ISO's final limine-update builds the UKIs.
 
-omarchy-hw-n1x || return 0
+omarchy-hw-aarch64-n1x || return 0
 
 echo "Detected NVIDIA N1x platform, applying platform configuration..."
 

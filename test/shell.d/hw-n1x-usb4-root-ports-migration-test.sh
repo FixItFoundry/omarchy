@@ -11,7 +11,7 @@ real_udevadm=$(command -v udevadm || true)
 export PATH="$tmp_dir/bin:$PATH"
 
 printf '#!/bin/bash\necho "udevadm $*" >> "$CALL_LOG"\n' > "$tmp_dir/bin/udevadm"
-cat > "$tmp_dir/bin/omarchy-hw-n1x" <<'SH'
+cat > "$tmp_dir/bin/omarchy-hw-aarch64-n1x" <<'SH'
 #!/bin/bash
 [[ ${IS_N1X:-1} == 1 ]]
 SH
