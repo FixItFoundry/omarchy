@@ -42,7 +42,15 @@ run_logged "$OMARCHY_INSTALL/hardware/apple/fix-suspend-nvme.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/fix-t2.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/fix-brcmfmac-supplicant.sh"
 
+# These write boot settings and build nothing, like n1x.sh: the installer's
+# final limine-update builds the UKIs, and an image's first boot rebuilds once
+# after its last step.
+run_logged "$OMARCHY_INSTALL/hardware/qualcomm/dtb-uki.sh"
+run_logged "$OMARCHY_INSTALL/hardware/qualcomm/kernel-params.sh"
+run_logged "$OMARCHY_INSTALL/hardware/qualcomm/firmware.sh"
+
 run_logged "$OMARCHY_INSTALL/hardware/lenovo/fix-yoga-pro7-bass-speakers.sh"
+run_logged "$OMARCHY_INSTALL/hardware/lenovo/yoga-slim7x.sh"
 
 run_logged "$OMARCHY_INSTALL/hardware/fix-bcm43xx.sh"
 run_logged "$OMARCHY_INSTALL/hardware/fix-surface-keyboard.sh"
