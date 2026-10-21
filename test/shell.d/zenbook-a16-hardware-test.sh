@@ -31,6 +31,12 @@ export OMARCHY_ZENBOOK_KERNEL_MODULES_ROOT="$scratch/modules"
 export OMARCHY_ZENBOOK_CMDLINE_FILE="$scratch/cmdline"
 export OMARCHY_ZENBOOK_WIREPLUMBER_DIR="$scratch/wireplumber.conf.d"
 export OMARCHY_QUALCOMM_MODPROBE_DIR="$scratch/modprobe.d"
+export OMARCHY_ZENBOOK_BOOT_HOOKS_DIR="$scratch/boot-hooks"
+limine-entry-tool() {
+  [[ $* == "--get-cmdline default" ]] || return 1
+  printf '%s\n' "$(cat "$OMARCHY_ZENBOOK_CMDLINE_FILE")${staged_unlock:-}"
+}
+export -f limine-entry-tool
 
 matching="$scratch/matching"
 mkdir -p "$matching/proc/device-tree"
@@ -46,6 +52,34 @@ printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' >"$matching/proc/device-tree/c
     OMARCHY_ZENBOOK_LIMINE_CONFIG_DIR="$matching/limine-entry-tool.d" \
     OMARCHY_ZENBOOK_SLEEP_CONFIG_DIR="$matching/sleep.conf.d" \
     source "$setup"
+)
+
+# Missing root must fail before any board files or services are changed.
+(
+  omarchy-hw-aarch64-qualcomm() { return 0; }
+  omarchy-hw-match() { return 0; }
+  systemctl() { fail "invalid root must not change services"; }
+  echo quiet > "$scratch/invalid-cmdline"
+  mkdir -p "$scratch/invalid-root"
+  echo preserved > "$scratch/invalid-root/zenbook-a16.conf"
+  for failure in rootless query; do
+    if [[ $failure == "query" ]]; then
+      echo "root=/dev/mapper/root rw" > "$scratch/invalid-cmdline"
+      limine-entry-tool() { return 1; }
+    fi
+    if OMARCHY_ZENBOOK_CMDLINE_FILE="$scratch/invalid-cmdline" \
+      OMARCHY_ZENBOOK_MODULES_LOAD_DIR="$scratch/invalid-root" \
+      OMARCHY_ZENBOOK_MKINITCPIO_DIR="$scratch/invalid-root" \
+      OMARCHY_ZENBOOK_LIMINE_CONFIG_DIR="$scratch/invalid-root" \
+      OMARCHY_ZENBOOK_SLEEP_CONFIG_DIR="$scratch/invalid-root" \
+      source "$setup"; then
+      fail "A16 setup rejects an invalid shared command line: $failure"
+    fi
+  done
+  [[ $(ls -A "$scratch/invalid-root") == "zenbook-a16.conf" ]] ||
+    fail "A16 root refusal leaves board configuration untouched"
+  [[ $(cat "$scratch/invalid-root/zenbook-a16.conf") == "preserved" ]] ||
+    fail "A16 root refusal preserves the previous Limine drop-in"
 )
 
 grep -Fxq 'scmi-cpufreq' "$matching/modules-load.d/zenbook-a16.conf" ||
@@ -101,6 +135,42 @@ done
     [[ ${KERNEL_CMDLINE[$kernel]} == "root=/dev/mapper/root rw "* ]] ||
       fail "Zenbook A16 loses the installer's root parameters"
   done
+)
+(
+  [[ -x $OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline ]] ||
+    fail "A16 refresh hook runs in Limine's pre-build hook pipeline"
+  for staged_unlock in ' cryptkey=rootfs:/etc/omarchy/provisioning.key' ''; do
+    export staged_unlock
+    bash "$OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline"
+    declare -A KERNEL_CMDLINE=()
+    source "$matching/limine-entry-tool.d/zz-zenbook-a16-boot.conf"
+    for kernel in linux-omarchy fallback; do
+      if [[ -n $staged_unlock ]]; then
+        [[ " ${KERNEL_CMDLINE[$kernel]} " == *"$staged_unlock "* ]] ||
+          fail "A16 $kernel inherits the staged reset unlock key at rebuild time"
+      else
+        [[ ${KERNEL_CMDLINE[$kernel]} != *cryptkey=* ]] ||
+          fail "A16 $kernel drops the staged unlock key after provisioning"
+      fi
+    done
+  done
+  cp "$matching/limine-entry-tool.d/zz-zenbook-a16-boot.conf" "$scratch/boot-before"
+  limine-entry-tool() { echo 'quiet'; }
+  export -f limine-entry-tool
+  if bash "$OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline"; then
+    fail "A16 rejects a shared command line without root"
+  fi
+  cmp -s "$scratch/boot-before" "$matching/limine-entry-tool.d/zz-zenbook-a16-boot.conf" ||
+    fail "A16 preserves boot settings when the shared command line is invalid"
+  limine-entry-tool() { echo 'root=/dev/mapper/root rw'; }
+  export -f limine-entry-tool
+  chmod u-w "$matching/limine-entry-tool.d"
+  status=0
+  bash "$OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline" || status=$?
+  chmod u+w "$matching/limine-entry-tool.d"
+  [[ $status == 100 ]] || fail "A16 stops the boot rebuild when configuration cannot be written"
+  cmp -s "$scratch/boot-before" "$matching/limine-entry-tool.d/zz-zenbook-a16-boot.conf" ||
+    fail "A16 preserves boot settings when configuration cannot be written"
 )
 grep -Fxq 'disable zenbook-a16-remoteprocs.service' "$matching/systemctl.log" ||
   fail "Zenbook A16 disables legacy late DSP startup"

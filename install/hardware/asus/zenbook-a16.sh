@@ -31,6 +31,12 @@ if omarchy-hw-aarch64-qualcomm &&
     return 1
   fi
 
+  if ! a16_root_cmdline=$(limine-entry-tool --get-cmdline default) ||
+    [[ $a16_root_cmdline != *root=* ]]; then
+    echo "A16 setup requires a shared root command line" >&2
+    return 1
+  fi
+
   # Keep sleep disabled until this kernel and USB-root setup pass resume tests.
   mkdir -p "$sleep_config_dir"
   cat >"$sleep_config_dir/omarchy-sleep-disabled.conf" <<'CONF'

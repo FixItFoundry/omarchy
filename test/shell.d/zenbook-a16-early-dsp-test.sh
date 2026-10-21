@@ -23,6 +23,12 @@ export OMARCHY_ZENBOOK_LIMINE_CONFIG_DIR="$scratch/limine-entry-tool.d"
 export OMARCHY_ZENBOOK_SLEEP_CONFIG_DIR="$scratch/sleep.conf.d"
 export OMARCHY_ZENBOOK_SUPPORT_DIR="$scratch/support"
 export OMARCHY_ZENBOOK_CMDLINE_FILE="$scratch/cmdline"
+export OMARCHY_ZENBOOK_BOOT_HOOKS_DIR="$scratch/boot-hooks"
+limine-entry-tool() {
+  [[ $* == "--get-cmdline default" ]] || return 1
+  cat "$OMARCHY_ZENBOOK_CMDLINE_FILE"
+}
+export -f limine-entry-tool
 export OMARCHY_ZENBOOK_WIREPLUMBER_DIR="$scratch/wireplumber.conf.d"
 export OMARCHY_QUALCOMM_MODPROBE_DIR="$scratch/modprobe.d"
 export OMARCHY_IMAGE_BOOT_REBUILD="$scratch/rebuild"
@@ -74,6 +80,17 @@ grep -Fxq 'disable zenbook-a16-remoteprocs.service' "$scratch/systemctl.log" || 
 before=$(cat "$scratch/limine-entry-tool.d/zz-zenbook-a16-boot.conf")
 source "$ROOT/install/hardware/asus/zenbook-a16.sh"
 [[ $(cat "$scratch/limine-entry-tool.d/zz-zenbook-a16-boot.conf") == "$before" ]] || fail 'setup not idempotent'
+
+# A readable old hook must not hide a failed attempt to replace it.
+if (( EUID != 0 )); then
+  (
+    chmod 444 "$OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline"
+    status=0
+    source "$ROOT/install/hardware/asus/zenbook-a16.sh" || status=$?
+    chmod 755 "$OMARCHY_ZENBOOK_BOOT_HOOKS_DIR/20-zenbook-a16-cmdline"
+    [[ $status != 0 ]] || fail 'setup ignored a failed boot-hook replacement'
+  )
+fi
 
 # A new shared kernel with the same audited ABI keeps the board profile without
 # a version pin or another hardware-specific kernel package.

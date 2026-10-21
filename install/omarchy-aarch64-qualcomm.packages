@@ -7,9 +7,10 @@ linux-firmware-qcom
 qcom-firmware-extract
 # A16 topology and boot checks activate only on the matching board/kernel ABI.
 omarchy-a16-support
-# OEM-signed A16 files have board-specific paths; calibration is model-gated.
-asus-zenbook-a16-firmware
 # Builds the UKI with the device trees systemd-stub picks one from.
 systemd-ukify
 # Adreno GPUs.
 vulkan-freedreno
+# The cameras run through libcamera, and apps reach them through this PipeWire
+# backend.
+pipewire-libcamera
