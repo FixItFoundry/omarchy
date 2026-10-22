@@ -259,4 +259,26 @@ with FakeHttp(mode=401):
   record = collect("opencode", "--force")
 check("OpenCode collector names an expired Console session",
       record["usageStatusText"] == "Sign-in expired" and "Console session has expired" in record["authHelpText"] and record["limits"] == [], record)
+
+# A Go key opencode imported from auth.json has no active flag until a
+# credential is switched or added, and opencode uses the newest such key, so
+# the collector does too; once one is marked active, that one wins.
+sandbox()
+db = data_home() / "opencode" / "opencode.db"
+db.parent.mkdir(parents=True)
+conn = sqlite3.connect(db)
+conn.execute("CREATE TABLE credential (id text, integration_id text, active integer, time_updated integer, value text)")
+conn.executemany("INSERT INTO credential VALUES (?, ?, ?, ?, ?)", [
+  ("c1", "opencode-go", None, 1, json.dumps({"type": "key", "key": "older_legacy_key"})),
+  ("c2", "opencode-go", None, 2, json.dumps({"type": "key", "key": "legacy_key"})),
+])
+conn.commit()
+expect("OpenCode collector reads a Go key imported from auth.json, the newest first",
+       [c.token for c in load_collector("opencode").credential_candidates()], ["legacy_key", "older_legacy_key"])
+conn.execute("INSERT INTO credential VALUES ('c3', 'opencode-go', 1, 0, ?)", (json.dumps({"type": "key", "key": "switched_key"}),))
+conn.execute("UPDATE credential SET active = 0 WHERE id != 'c3'")
+conn.commit()
+conn.close()
+expect("OpenCode collector prefers the key opencode marked active over imported ones",
+       [c.token for c in load_collector("opencode").credential_candidates()], ["switched_key"])
 PY

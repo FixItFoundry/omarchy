@@ -169,8 +169,13 @@ def read_store_credentials(db):
     return keys, console
   try:
     conn.execute("PRAGMA query_only = ON")
+    # Credentials imported from auth.json carry no active flag, and opencode
+    # uses the newest of them until something is switched or added; only
+    # then does one get marked active.
     rows = conn.execute(
-      "SELECT integration_id, value FROM credential WHERE active = 1 AND integration_id IN ('opencode-go', 'opencode')"
+      "SELECT integration_id, value FROM credential AS c WHERE integration_id IN ('opencode-go', 'opencode')"
+      " AND (active = 1 OR (active IS NULL AND NOT EXISTS ("
+      "SELECT 1 FROM credential WHERE integration_id = c.integration_id AND active = 1)))"
       " ORDER BY integration_id = 'opencode-go' DESC, time_updated DESC"
     ).fetchall()
   except sqlite3.Error:
