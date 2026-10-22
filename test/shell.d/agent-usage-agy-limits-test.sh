@@ -31,13 +31,18 @@ REAL_PATH = os.environ["PATH"]
 
 
 # A machine where agy keeps its sign-in in the keyring: secret-tool answers
-# with keyring.json, which sign_in() writes.
+# with keyring.json, which sign_in() writes. agy itself answers /usage with
+# agy-usage.json when cli_usage() writes one, counting its runs, and fails
+# otherwise, so the machine's own agy is never asked.
 def machine():
   sandbox()
   stub = home() / "bin" / "secret-tool"
   stub.parent.mkdir(parents=True, exist_ok=True)
   stub.write_text('#!/bin/bash\ncat "$HOME/keyring.json" 2>/dev/null\n')
   stub.chmod(0o755)
+  cli = home() / "bin" / "agy"
+  cli.write_text('#!/bin/bash\necho "$*" >>"$HOME/agy-runs"\n[[ $1 == "-p" && $2 == "/usage" ]] && cat "$HOME/agy-usage.json" 2>/dev/null\n')
+  cli.chmod(0o755)
   os.environ["PATH"] = f"{stub.parent}:{REAL_PATH}"
   os.environ["AGY_DIR"] = str(home() / "agy")
 
@@ -45,6 +50,15 @@ def machine():
 def sign_in(token="token-main", expiry=None, id_token=ME, refresh="refresh-main"):
   write_json(home() / "keyring.json", {"auth_method": "consumer", "id_token": id_token,
                                        "token": {"access_token": token, "refresh_token": refresh, "expiry": expiry or iso_in(3600)}})
+
+
+def cli_usage(groups):
+  write_json(home() / "agy-usage.json", {"status": "SUCCESS", "num_turns": 0, "command": {"name": "usage", "data": {"groups": groups}}})
+
+
+def cli_runs():
+  path = home() / "agy-runs"
+  return len(path.read_text().splitlines()) if path.exists() else 0
 
 
 def agy(mode="up", routes=ANSWER, args=("--force",)):
@@ -190,6 +204,29 @@ record, http = agy()
 check("Antigravity collector pauses limits while agy's access token has lapsed, asking nothing",
       http.count == 0 and record["usageStatusText"] == "Limits paused" and record["limitsStale"] is True and len(record["limits"]) == 1
       and "signing in again is not needed" in record["authHelpText"], record)
+
+# agy renews its own sign-in when asked, so `agy -p /usage` answers for a
+# lapsed token with live limits, and its answer is reused like Google's.
+(home() / "agy-runs").unlink(missing_ok=True)
+cli_usage([
+  {"name": "Gemini Models", "buckets": [
+    {"id": "gemini-weekly", "window": "weekly", "remaining_fraction": 0.4, "reset_time": iso_in(86400)},
+    {"id": "gemini-5h", "window": "5h", "remaining_fraction": 0.9, "reset_time": iso_in(3600)}]},
+  {"name": "Claude and GPT models", "buckets": [
+    {"id": "3p-weekly", "window": "weekly", "remaining_fraction": 0.5, "reset_time": iso_in(86400)}]},
+])
+record, http = agy()
+expect("Antigravity collector asks agy itself for the limits of a lapsed sign-in",
+       [http.count, cli_runs(), record["usageStatusText"], record["limitsStale"],
+        [(entry["label"], round(entry["percent"], 2)) for entry in record["limits"]]],
+       [0, 1, "", False, [("Session (5-hour)", 0.1), ("Weekly (7-day)", 0.6), ("Claude/GPT Weekly", 0.5)]], record)
+record, _ = agy(args=())
+expect("Antigravity collector reuses agy's answer instead of asking again within the minute",
+       [cli_runs(), record["limitsStale"], len(record["limits"])], [1, False, 3], record)
+(home() / "agy-usage.json").unlink()
+record, _ = agy()
+expect("Antigravity collector pauses the limits agy last gave when agy can't answer",
+       [cli_runs(), record["usageStatusText"], record["limitsStale"], len(record["limits"])], [2, "Limits paused", True, 3], record)
 
 sign_in(expiry=iso_in(-3600), refresh="")
 record, http = agy()

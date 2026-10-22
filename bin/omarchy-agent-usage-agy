@@ -15,8 +15,9 @@ limits come from the Google Cloud Code API (v1internal:loadCodeAssist and
 v1internal:retrieveUserQuotaSummary), asked with the sign-in agy keeps in the
 Secret Service keyring (or its antigravity-oauth-token file), or with the
 Antigravity sign-in omp, pi, or opencode's Antigravity plugin keeps; a lapsed
-omp sign-in is asked through `omp usage`, which renews it. Those stores are
-only ever read. The agents panel only ever reads the JSON this prints.
+sign-in is asked through `agy -p /usage` or `omp usage`, which renew their
+own. Those stores are only ever read. The agents panel only ever reads the
+JSON this prints.
 """
 
 import argparse
@@ -383,6 +384,8 @@ def collect_limits(entries, force):
   lead = next(iter(fresh or [e for e in ordered if e["accessToken"]] or ordered), None)
   omp = shutil.which("omp") if any(e["source"] == "omp" for e in entries) else None
   omp_entries = [e for e in ordered if e["source"] == "omp"] if omp else []
+  agy = shutil.which("agy") if any(e["source"] == "agy" for e in entries) else None
+  agy_entries = [e for e in ordered if e["source"] == "agy"] if agy else []
 
   def keep(entry):
     # A window kept from an earlier check whose reset has passed is back to
@@ -409,7 +412,7 @@ def collect_limits(entries, force):
   # A panel that is opened and shut repeatedly must not turn into a request
   # per flick; --force is a person asking for fresh numbers.
   if not force:
-    for entry in fresh + [e for e in omp_entries if e not in fresh]:
+    for entry in fresh + [e for e in omp_entries + agy_entries if e not in fresh]:
       # An answer with no windows is an answer too: a plan without quotas.
       cache = limits_cache(entry)
       if cache and cache.fresh(force, allow_empty=True):
@@ -448,8 +451,11 @@ def collect_limits(entries, force):
       result["usageStatusText"] = "Antigravity limits unavailable"
     return result
 
-  # No token in hand answered, but omp renews its own sign-in when asked
-  # for usage.
+  # No token in hand answered, but agy and omp renew their own sign-in when
+  # asked for usage.
+  limits = extract_limits(agy_usage(agy)) if agy_entries else None
+  if limits is not None:
+    return answered(agy_entries[0], kept_tier(agy_entries[0]), limits)
   answer = omp_answer(omp, omp_entries) if omp_entries else None
   if answer:
     entry, tier, limits = answer
@@ -465,6 +471,25 @@ def collect_limits(entries, force):
   # while a refresh token stands behind it.
   result.update(usageStatusText="Limits paused" if lead["refresh"] else "Sign-in expired", authHelpText=lapsed_help(lead, result["limits"]))
   return result
+
+
+# agy renews the sign-in it keeps in the keyring whenever it runs, and
+# `agy -p /usage` answers without starting a turn, printing the quota groups
+# its /usage panel draws in a shape kept stable for scripts. Those are
+# Google's quota summary under another field name.
+def agy_usage(agy):
+  try:
+    output = subprocess.run(
+      [agy, "-p", "/usage", "--output-format", "json", "--log-file", os.devnull],
+      stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=45, check=True,
+    ).stdout
+    answer = json.loads(output)
+    groups = answer["command"]["data"]["groups"] if answer.get("status") == "SUCCESS" else None
+  except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+    return None
+  if not isinstance(groups, list) or not groups:
+    return None
+  return {"groups": [dict(g, displayName=g.get("name")) for g in groups if isinstance(g, dict)]}
 
 
 # omp refreshes its own Antigravity sign-in when asked for usage, so its
